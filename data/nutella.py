@@ -11,4 +11,4 @@ def load():
             if len(edge)!=2:
                 continue
             G.add_edge(*edge)
-    return nx.ego_graph(G, '0', 3)
+    return G#nx.ego_graph(G, '0', 3)

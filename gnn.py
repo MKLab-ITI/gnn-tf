@@ -8,13 +8,17 @@ import sklearn.metrics
 # tf.enable_eager_execution()
 
 
-def negative_sampling(adjacency):
+def negative_sampling(adjacency, node_ids=None, max_negative_samples=None):
+    if node_ids is None:
+        node_ids = list(range(adjacency.shape[0]))
+    if max_negative_samples is None:
+        max_negative_samples = len(node_ids) // 40
+    if max_negative_samples > len(node_ids):
+        max_negative_samples = len(node_ids)
     training_edges = list()
-    for i in range(adjacency.shape[0]):
+    for i in node_ids:
         positives = np.sum(adjacency[i])
-        remaining = adjacency.shape[0] // 20 - positives
-        if remaining < 0:
-            exit(1)
+        remaining = max_negative_samples - positives
         for j in range(adjacency.shape[1]):
             if adjacency[i, j] == 1:
                 training_edges.append([i, j])
