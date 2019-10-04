@@ -21,3 +21,8 @@ def nutella():
 def facebook():
     # http://snap.stanford.edu/data/ego-Facebook.html
     return load('data/facebook_combined.txt')
+
+
+def twitter():
+    # https://snap.stanford.edu/data/ego-Twitter.html
+    return nx.ego_graph(load('data/twitter_combined.txt'), '214328887', 1)
