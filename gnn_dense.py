@@ -21,6 +21,7 @@ def get_convolution(adjacency, remove_edges=None):
     if remove_edges is not None:
         for i, j in remove_edges:
             convolution[i, j] = 0
+            convolution[j, i] = 0
     return convolution / np.sum(convolution, axis=1)
 
 
@@ -35,7 +36,7 @@ def negative_sampling(adjacency, max_negative_samples=500, node_ids=None):
         negative_samples = int(max_negative_samples - positives)
         training_edges.extend([[i, j] for j in np.where(adjacency[i, :] == 1)[0]])
         if negative_samples>0:
-            training_edges.extend([[i, j] for j in np.random.choice(np.where(adjacency[i, :] == 0)[0], negative_samples, replace=False)])
+            training_edges.extend([[i, j] for j in np.random.choice(np.where(adjacency[i, :] == 0)[0], negative_samples, replace=False) if i!=j])
     return np.array(training_edges)
 
 
@@ -57,7 +58,6 @@ class Model:
         self.vars.append(var)
         return var
 
-    @tf.function
     def _predict_batch(self, convolution, features, edges):
         for layer in self.layers:
             features = tf.add(tf.matmul(convolution, tf.matmul(features, layer[0])), tf.matmul(features, layer[1]))
@@ -68,12 +68,11 @@ class Model:
         logits = tf.matmul(tf.multiply(tf.gather(features, edges[:,0]), tf.gather(features, edges[:,1])), self.r)
         return tf.nn.sigmoid(logits)
 
-    @tf.function
     def _train_batch(self, convolution, features, edges, labels, optimizer):
         with tf.GradientTape() as tape:
             prediction = self._predict_batch(convolution, features, edges)
-            loss = -tf.reduce_sum(labels*tf.math.log(prediction+10E-6)) \
-                    -tf.reduce_sum((1-labels)*tf.math.log(1-prediction+10E-6))
+            loss = -tf.reduce_sum(labels*tf.math.log(prediction+1.E-8)) \
+                    -tf.reduce_sum((1-labels)*tf.math.log(1-prediction+1.E-9))
             regularizer = 0
             for var in self.vars:
                 regularizer = regularizer + tf.nn.l2_loss(var)
@@ -85,7 +84,7 @@ class Model:
     def train(self, convolution, features, edges, labels, batch_size=None, epochs=100, optimizer=None, tol=10E-6):
         self.training = True
         if optimizer is None:
-            optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+            optimizer = tf.keras.optimizers.Adam(learning_rate=0.1)
         if batch_size is None:
             batch_size = len(labels)
         prev_loss = float('inf')
@@ -112,7 +111,7 @@ class Model:
 class PageRank:
     def __init__(self, layers, alpha=0.85):
         self.layers = layers
-        self.alpha = 0.85
+        self.alpha = alpha
         self.trained = None
 
     @tf.function
@@ -123,9 +122,9 @@ class PageRank:
         #logits = tf.reduce_mean(tf.multiply(tf.gather(features, edges[:, 0]), tf.gather(features, edges[:, 1])), axis=1)
         return features
 
-    def train(self, convolution, features):
-         pass
+    def train(self, convolution, features, training_edges, training_labels, epochs=50):
+        features = self._predict_batch(convolution, features)
+        self.predictions = [features[i,j] for i,j in training_edges]
 
     def predict(self, convolution, features, edges):
-        features = self._predict_batch(convolution, features)
-        return [features[i,j] for i,j in edges]
+        return self.predictions
