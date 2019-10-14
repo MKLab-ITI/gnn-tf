@@ -26,7 +26,8 @@ else:
 
 print("Creating model...")
 #model = gnn.PageRank(7)
-model = gnn.Model(len(G), [32])
+#model = gnn.Model(len(G), [32])
+model = gnn.Random()
 
 print("Training...")
 model.train(convolution, features, training_edges, training_labels, epochs=50)

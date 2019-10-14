@@ -26,11 +26,13 @@ def evaluate(labels, predicted_labels, measure, edges=None):
         count = 0
         successes = 0
         for user in user_links:
-            if len(user_links[user])>=3:
+            if len(user_links[user]) >= 6:
                 count += 1
                 for top in sorted(list(user_predict[user].keys()), key=lambda i: user_predict[user][i], reverse=True)[:2]:
-                    successes += user_links[user][top]
+                    if user_links[user][top]==1:
+                        successes += user_links[user][top]
+                        break
         print(successes, count)
-        return successes/3.0/count
+        return successes/count
     else:
         raise Exception('No such measure: ', measure)

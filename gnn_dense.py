@@ -22,7 +22,7 @@ def get_convolution(adjacency, remove_edges=None):
         for i, j in remove_edges:
             convolution[i, j] = 0
             convolution[j, i] = 0
-    return convolution / np.sum(convolution, axis=1)
+    return convolution / (np.sum(convolution, axis=1)+np.finfo(float).eps)
 
 
 def negative_sampling(adjacency, max_negative_samples=500, node_ids=None):
@@ -39,6 +39,16 @@ def negative_sampling(adjacency, max_negative_samples=500, node_ids=None):
             training_edges.extend([[i, j] for j in np.random.choice(np.where(adjacency[i, :] == 0)[0], negative_samples, replace=False) if i!=j])
     return np.array(training_edges)
 
+
+class Random:
+    def __init__(self):
+        pass
+
+    def train(self, convolution, features, training_edges, training_labels, epochs=50):
+        pass
+
+    def predict(self, convolution, features, edges):
+        return [np.random.choice([0,1]) for i,j in edges]
 
 class Model:
     def __init__(self, input_dims, embedding_dims):
@@ -123,8 +133,7 @@ class PageRank:
         return features
 
     def train(self, convolution, features, training_edges, training_labels, epochs=50):
-        features = self._predict_batch(convolution, features)
-        self.predictions = [features[i,j] for i,j in training_edges]
+        self.features = self._predict_batch(convolution, features)
 
     def predict(self, convolution, features, edges):
-        return self.predictions
+        return [self.features[i,j] for i,j in edges]
