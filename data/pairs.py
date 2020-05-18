@@ -25,4 +25,4 @@ def facebook():
 
 def twitter():
     # https://snap.stanford.edu/data/ego-Twitter.html
-    return nx.ego_graph(load('data/twitter_combined.txt'), '214328887', 2)
+    return nx.ego_graph(load('data/twitter_combined.txt'), '214328887', 1)
