@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+
 def acc(labels, predictions):
     return sum([1. for label, prediction in zip(labels, predictions) if (label>0.5) == (prediction>0.5)])/len(predictions)
 
@@ -60,10 +61,13 @@ class GCNModel(object):
     def loss(self, labels, predictions):
         raise Exception("Should implement the loss method")
 
-    def predict(self, data):
-        features = self.features
+    def preprocess(self, features):
         if self.feature_embeddings is not None:
             features = tf.matmul(features, self.feature_embeddings)
+        return features
+
+    def predict(self, data):
+        features = self.preprocess(self.features)
         for layer in self.layers:
             features = self.call_layer(layer, features)
         return self.call_predictor(features, data)
@@ -73,9 +77,7 @@ class GCNModel(object):
         with tf.GradientTape() as tape:
             if regularize_intermediates and len(self.layers) > 1:
                 loss = 0
-                features = self.features
-                if self.feature_embeddings is not None:
-                    features = tf.matmul(features, self.feature_embeddings)
+                features = self.preprocess(self.features)
                 for layer in self.layers:
                     features = self.call_layer(layer, features)
                     predictions = self.call_predictor(features, data)
@@ -132,6 +134,7 @@ class GCNModel(object):
             validation_predictions = np.argmax(validation_predictions,axis=1).tolist()
             print('Epoch', epoch, '/', epochs, '\tLoss', loss, '\tacc', acc(validation_labels, validation_predictions))
         return acc(validation_labels, validation_predictions)
+
 
 class RelationalGCN(GCNModel):
     def __init__(self, *args, **kwargs):

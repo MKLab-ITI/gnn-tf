@@ -24,19 +24,19 @@ class GeneralizedGCN(ClassificationGCN):
 
 class APPNP(ClassificationGCN):
     def __init__(self, *args, **kwargs):
-        self.a = None
         super(APPNP, self).__init__(*args, **kwargs)
+        self.a = self.create_var(shape=(1, 1))
 
     def build_layer(self, layer_num, input_dims, output_dims):
-        if self.a is None:
-            self.a = self.create_var(shape=(1, 1))
-        return layer_num, self.a
+        pass
 
-    def call_layer(self, layer, features):
-        layer_num, a = layer
-        if layer_num == 0:
-            self.H0 = features
-        features = (1-a)*tf.sparse.sparse_dense_matmul(self.adjacency_matrix, features) + a*self.H0
+    def preprocess(self, features):
+        features = super().preprocess(features)
+        self.H0 = features
+        return features
+
+    def call_layer(self, _, features):
+        features = (1-self.a)*tf.sparse.sparse_dense_matmul(self.adjacency_matrix, features) + self.a*self.H0
         return features
 
 
@@ -51,7 +51,7 @@ acc = 0
 repeats = 10
 for _ in range(repeats):
     G, labels, training_idx, test_idx, node_features = semisupervised_classification_setup("cora")
-    model = GeneralizedGCN(graph2adj(G), node_features, output_labels=len(set(labels)), embedding_dims = [32])
+    model = APPNP(graph2adj(G), node_features, output_labels=len(set(labels)), embedding_dims = [32]*32)
     acc += model.train(training_idx, labels[training_idx],
                 validation_data=test_idx, validation_labels=labels[test_idx],
                 learning_rate=0.01, epochs=250)
