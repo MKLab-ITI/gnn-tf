@@ -2,14 +2,14 @@ import numpy as np
 import random
 import tensorflow as tf
 from experiments.experiment_setup import dgl_setup, custom_splits
-
-
-from core.utils import acc
 from core.gnn.gnn import NodePrediction
 from core.gnn.filter import APPNP as Architecture
 from core.gnn.gcn import GCNII as Architecture
 from core.gnn.filter import PPRIteration
 from core.nn.layers import Activation, Layered, Dense
+from utils import acc, set_seed
+
+
 dataset = "cora"
 
 G, labels, features, train, valid, test = dgl_setup(dataset)
@@ -28,13 +28,8 @@ with tf.device('/cpu:0'):
     accs = list()
     for experiment in range(20):
         #train, valid, test = custom_splits(labels, num_validation=None, seed=experiment)
-        random.seed(experiment)
-        np.random.seed(experiment)
-        tf.random.set_seed(experiment)
-        print('====== Experiment', experiment, '======')
-        print('Training', len(train))
-        print('Validation', len(valid))
-        print('Test', len(test))
+        set_seed(experiment)
+
         classifier = Architecture(G, features, num_classes=num_classes)#, loss_transform=Layered([G.shape[0], num_classes], [Activation("scale")]))
         classifier.train({"nodes": train, "labels": labels[train]},
                          {"nodes": valid, "labels": labels[valid]},
