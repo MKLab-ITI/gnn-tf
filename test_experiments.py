@@ -2,40 +2,46 @@ import numpy as np
 import random
 import tensorflow as tf
 from experiments.experiment_setup import dgl_setup, custom_splits
-from core.gnn.gnn import NodePrediction
-from core.gnn.filter import APPNP as Architecture
-from core.gnn.gcn import GCNII as Architecture
+from core.gnn import NodePrediction
+from core.gnn import APPNP, GCNII, APExp
 from core.gnn.filter import PPRIteration
 from core.nn.layers import Activation, Layered, Dense
 from utils import acc, set_seed
 
-
-dataset = "cora"
-
-G, labels, features, train, valid, test = dgl_setup(dataset)
-num_classes = len(set(labels))
-
-print('====== Data characteristics ======')
-print('Features', features.shape[1])
-print('Edges', G.indices.shape[0])
-print('Label types', num_classes)
-
-np.random.seed(0)
-random.shuffle(valid)
-#valid = valid[:len(train)]
-
-with tf.device('/cpu:0'):
+def experiments(create_gnn, dataset, repeats=20, **kwargs):
+    G, labels, features, train, valid, test = dataset
     accs = list()
-    for experiment in range(20):
+    for experiment in range(repeats):
         #train, valid, test = custom_splits(labels, num_validation=None, seed=experiment)
         set_seed(experiment)
-
-        classifier = Architecture(G, features, num_classes=num_classes)#, loss_transform=Layered([G.shape[0], num_classes], [Activation("scale")]))
-        classifier.train({"nodes": train, "labels": labels[train]},
+        gnn = create_gnn()
+        gnn.train({"nodes": train, "labels": labels[train]},
                          {"nodes": valid, "labels": labels[valid]},
                          {"nodes": test, "labels": labels[test]},
-                         verbose=True, patience=100)
-        prediction = classifier.predict(NodePrediction(test))
+                         **kwargs)
+        prediction = gnn.predict(NodePrediction(test))
         accuracy = acc(prediction, labels[test])
         accs.append(accuracy)
         print('Accuracy', np.mean(accs), '\pm', 1.96*np.std([np.random.choice(accs, len(accs), replace=True) for _ in range(1000)]))
+
+datasets = ['cora']#, 'cora', 'pubmed']
+with tf.device('/cpu:0'):
+    for dataset_name in datasets:
+        dataset = dgl_setup(dataset_name)
+        G, labels, features, train, valid, test = dataset
+        num_classes = len(set(labels))
+        print('====== Dataset ======')
+        print('Name', dataset_name)
+        print('Features', features.shape[1])
+        print('Edges', G.indices.shape[0])
+        print('Classes', num_classes)
+        loss_transform = None#Layered([G.shape[0], num_classes], [Activation("scale")])
+        if dataset_name == "cora":
+            gnn = lambda: GCNII(G, features, num_classes=num_classes, iterations=64, l=0.5, dropout=0.6, latent_dims=[256], convolution_regularization=20, loss_transform=loss_transform)
+        if dataset_name == 'citeseer':
+            gnn = lambda: GCNII(G, features, num_classes=num_classes, iterations=32, l=0.6, dropout=0.7, latent_dims=[256], convolution_regularization=20, loss_transform=loss_transform)
+        elif dataset_name == 'pubmed':
+            gnn = lambda: GCNII(G, features, num_classes=num_classes, iterations=16, l=0.4, dropout=0.5, latent_dims=[256], convolution_regularization=1, loss_transform=loss_transform)
+        gnn = lambda: APPNP(G, features, num_classes=num_classes, loss_transform=loss_transform)
+        gnn = lambda: APExp(G, features, num_classes=num_classes, loss_transform=loss_transform)
+        experiments(gnn, dataset, 5, verbose=True, patience=100)

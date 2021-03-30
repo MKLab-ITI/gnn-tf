@@ -27,6 +27,23 @@ def graph2indices(G):
     return [[node2id[u], node2id[v]] for u, v in G.edges()]
 
 
+def negative_sampling(positive_edges, graph, samples=10):
+    edges = list()
+    values = list()
+    nodes = list(graph)
+    for u, v in positive_edges:
+        edges.append([u, v])
+        values.append(1)
+        for _ in range(samples):
+            vneg = u
+            while graph.has_edge(u, vneg) or graph.has_edge(vneg, u) or vneg == u:
+                vneg = random.choice(nodes)
+            edges.append([u, vneg])
+            values.append(0)
+
+    return np.array(edges), values
+
+
 def sample_edges(G):
     node2id = {u: idx for idx, u in enumerate(G)}
     nodes = list(G)
@@ -52,6 +69,14 @@ def graph2adj(G):
             G.add_edge(v,u)
     values = [1. for _ in G.edges()]
     return tf.sparse.SparseTensor(graph2indices(G), values, (len(G), len(G)))
+
+def cite_setup(name, seed=0):
+    G, features, labels = load(name)
+    print(len(features))
+    features = np.array(features)
+    labels = np.array(labels)
+    train, valid, test = custom_splits(labels, num_validation=500, seed=seed)
+    return graph2adj(G), labels, features, train, valid, test
 
 def dgl_setup(dataset_name):
     from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset

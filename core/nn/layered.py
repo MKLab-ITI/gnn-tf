@@ -31,6 +31,13 @@ class Layered(VariableGenerator):
     def training_mode(self, training_mode):
         self.__training_mode = training_mode
 
+    def __enter__(self):
+        self.__training_mode = True
+        return [var.var for var in self.vars() if var.trainable]
+
+    def __exit__(self, type, value, tb):
+        self.__training_mode = False
+
     def dropout(self, features, dropout=0.5):
         return tf.nn.dropout(features, dropout) if self.__training_mode and dropout != 0 else features
 

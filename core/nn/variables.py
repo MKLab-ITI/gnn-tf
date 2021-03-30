@@ -46,13 +46,18 @@ class WrappedVariable(object):
 class VariableGenerator(object):
     def __init__(self):
         self.__vars = list()
+        self.__named_vars = dict()
 
     def vars(self):
         return self.__vars
 
-    def create_var(self, *args, **kwargs):
+    def create_var(self, *args,  shared_name=None, **kwargs):
+        if shared_name is not None and shared_name in self.__named_vars:
+            return self.__named_vars[shared_name]
         var = WrappedVariable(*args, **kwargs)
         self.__vars.append(var)
+        if shared_name is not None:
+            self.__named_vars[shared_name] = var.var
         return var.var
 
     def reset(self):

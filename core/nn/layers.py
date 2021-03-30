@@ -2,6 +2,27 @@ from .layered import Layered, Layer
 import tensorflow as tf
 
 
+class Branch(Layer):
+    def __build__(self, architecture: Layered, features: tf.Tensor):
+        self.features = features
+        return self.features.shape
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        return self.features
+
+
+class Concatenate(Layer):
+    def __build__(self, architecture: Layered, H0: Layer):
+        if architecture.top_shape()[0] != H0.output_shape[0]:
+            raise Exception("Mismatching first dimension to concatenate between shapes "+str(architecture.top_shape())+" and "+str(H0.output_shape))
+        self.H0 = H0
+        return (architecture.top_shape()[0], architecture.top_shape()[1]+H0.output_shape[1])
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        ret = tf.concat([features, self.H0.value], 1)
+        return ret
+
+
 class Dense(Layer):
     def __build__(self, architecture: Layered, outputs: int = None, activation = lambda x: x, bias: bool = True, dropout: float = 0.5, regularize : bool = True):
         if outputs is None:
@@ -31,6 +52,14 @@ class Activation(Layer):
         elif activation == "scale":
             scale = architecture.create_var((1, 1), "zero", regularize=False)
             activation = lambda x: x * (1 + scale)
+        elif activation == "kernel":
+            scale1 = architecture.create_var((1, 1), "ones", regularize=False)
+            scale2 = architecture.create_var((1, 1), "zero", regularize=False)
+            scale3 = architecture.create_var((1, 1), "zero", regularize=False)
+            scale4 = architecture.create_var((1, 1), "zero", regularize=False)
+            scale5 = architecture.create_var((1, 1), "zero", regularize=False)
+            scale6 = architecture.create_var((1, 1), "zero", regularize=False)
+            activation = lambda x: tf.math.log(tf.exp(x*scale1+scale4) + tf.exp(x*scale2+scale5) + tf.exp(x*scale3+scale6))
         elif activation == "softthresh":
             if 'threshold' in kwargs:
                 theta = kwargs['threshold']

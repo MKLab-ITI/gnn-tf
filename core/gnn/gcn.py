@@ -7,8 +7,8 @@ from core.nn.layers import Dense, Dropout
 class GCNIILayer(Layer):
     def __build__(self, architecture: Layered, H0: Layer, a: float, l: float, k: int = 0,
                   activation=lambda x: x, beta_transformer=tf.math.log1p,
-                  dropout: float = 0.5, graph_dropout: float = 0.5):
-        self.W = architecture.create_var((architecture.top_shape()[1], architecture.top_shape()[1]), "zero")
+                  dropout: float = 0.5, graph_dropout: float = 0.5, regularization=True):
+        self.W = architecture.create_var((architecture.top_shape()[1], architecture.top_shape()[1]), "zero", regularize=regularization)
         self.a = a
         self.l = l
         self.k = k
@@ -29,14 +29,14 @@ class GCNIILayer(Layer):
 
 class GCNII(GNN):
     # http://proceedings.mlr.press/v119/chen20v/chen20v.pdf
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes, a = 0.1, l=0.5, latent_dims=[64], iterations=64, dropout = 0.6, **kwargs):
+    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes, a = 0.1, l=0.5, latent_dims=[64], iterations=64, dropout = 0.6, convolution_regularization=True, **kwargs):
         super().__init__(G, features, **kwargs)
         self.add(Dropout(dropout))
         for latent_dim in latent_dims:
             self.add(Dense(latent_dim, dropout=dropout, activation=tf.nn.relu))
         H0 = self.top_layer()
         for iteration in range(iterations):
-            self.add(GCNIILayer(H0, a, l, iteration, activation=tf.nn.relu, dropout=dropout, graph_dropout=0))
+            self.add(GCNIILayer(H0, a, l, iteration, activation=tf.nn.relu, dropout=dropout, graph_dropout=0, regularization=convolution_regularization))
         self.add(Dense(num_classes, dropout=0, regularize=False))
 
 
