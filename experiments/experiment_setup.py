@@ -35,12 +35,11 @@ def negative_sampling(positive_edges, graph, samples=10):
         edges.append([u, v])
         values.append(1)
         for _ in range(samples):
-            vneg = u
+            vneg = v
             while graph.has_edge(u, vneg) or graph.has_edge(vneg, u) or vneg == u:
                 vneg = random.choice(nodes)
             edges.append([u, vneg])
             values.append(0)
-
     return np.array(edges), values
 
 

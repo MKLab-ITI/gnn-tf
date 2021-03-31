@@ -1,16 +1,6 @@
 import tensorflow as tf
 from core.nn.layers import Layered
-
-
-class Predictor(object):
-    def predict(self, features: tf.Tensor):
-        raise Exception("Predictors need to implement a predict method")
-
-    def loss(self, features: tf.Tensor):
-        raise Exception("Predictors need to implement a loss method")
-
-    def evaluate(self, features: tf.Tensor):
-        raise Exception("Predictors need to implement an evaluate method")
+from core.nn.trainable import Predictor
 
 
 class NodeClassification(Predictor):
@@ -40,21 +30,25 @@ class NodeClassification(Predictor):
 class LinkPrediction(Predictor):
     def __init__(self, edges, labels, gnn : Layered):
         self.edges = edges
-        self.values = labels
-        #self.r = gnn.create_var(shape=(gnn.top_shape()[1],1), shared_name="distmult")
+        self.values = tf.constant(labels, shape=(len(labels),1))
+        self.r = gnn.create_var(shape=(gnn.top_shape()[1],1), regularize=0, shared_name="distmult", normalization="ones")
 
-    def predict(self, features: tf.Tensor):
-        #logits = tf.matmul(tf.multiply(tf.gather(features, self.edges[:,0]), tf.gather(features, self.edges[:,1]), 1), self.r)
-        #print(logits.shape)
-        logits = tf.multiply(tf.gather(features, self.edges[:,0]), tf.gather(features, self.edges[:,1]), 1)
-        logits = tf.reduce_sum(logits, 1)
-
-        return tf.nn.sigmoid(logits)
+    def predict(self, features: tf.Tensor, to_logits=False):
+        #features = tf.math.l2_normalize(features, axis=1)
+        logits = tf.matmul(tf.multiply(tf.gather(features, self.edges[:,0]), tf.gather(features, self.edges[:,1])), self.r)
+        if not to_logits:
+            logits = tf.nn.sigmoid(logits)
+        return logits
+        #logits = tf.multiply(tf.gather(features, self.edges[:,0]), tf.gather(features, self.edges[:,1]))
+        #return tf.nn.sigmoid(tf.reduce_sum(logits, 1))
 
     def loss(self, features: tf.Tensor):
-        return tf.keras.losses.BinaryCrossentropy()(self.values, self.predict(features))
+        return tf.keras.losses.BinaryCrossentropy(from_logits=True)(self.values, self.predict(features, to_logits=True))
 
     def evaluate(self, features: tf.Tensor):
+        #pred = self.predict(features)
+        #print(pred.numpy()[0:30])
+        #print(self.values[0:30])
         metric = tf.keras.metrics.AUC()
         metric.update_state(self.values, self.predict(features))
         return metric.result().numpy()

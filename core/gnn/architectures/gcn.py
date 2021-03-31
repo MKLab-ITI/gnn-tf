@@ -56,7 +56,7 @@ class GCNLayer(Layer):
 
 
 class GCN(GNN):
-    def __prebuild__(self, G: tf.Tensor, features: tf.Tensor, num_classes, latent_dims=[64], **kwargs):
+    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes, latent_dims=[64], **kwargs):
         super().__init__(G, features, **kwargs)
         for latent_dim in latent_dims:
             self.add(GCNLayer(latent_dim))

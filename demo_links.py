@@ -1,5 +1,5 @@
-from experiments.experiment_setup import dgl_setup, negative_sampling
-from core.gnn import GCNII, LinkPrediction
+from experiments.experiment_setup import dgl_setup, negative_sampling, graph2adj
+from core.gnn import GCN, LinkPrediction
 from utils import set_seed
 from networkx import nx
 import random
@@ -17,13 +17,18 @@ valid = random.sample(list(set(range(len(edges))) - set(train)), (len(edges)-len
 test = list(set(range(len(edges))) - set(valid) - set(train))
 """
 #features = tf.constant(np.eye(len(Gnx), dtype=np.float32))
-
 #node2id = {u: idx for idx, u in enumerate(graph)}
 #edges = [[node2id[u], node2id[v]] for u, v in edges]
 
-gnn = GCNII(G, features, num_classes=16)
+training_graph = nx.DiGraph()
+for u in Gnx:
+    training_graph.add_node(u)
+for u,v in edges[train]:
+    training_graph.add_edge(u,v)
+
+gnn = GCN(graph2adj(training_graph), features, num_classes=16)
 
 gnn.train(train=LinkPrediction(*negative_sampling(edges[train], Gnx), gnn=gnn),
           valid=LinkPrediction(*negative_sampling(edges[valid], Gnx), gnn=gnn),
           test=LinkPrediction(*negative_sampling(edges[test], Gnx), gnn=gnn),
-          patience=100)
+          patience=100, learning_rate=0.1)
