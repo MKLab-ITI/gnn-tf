@@ -22,14 +22,20 @@ class Resume(Layer):
 
 class Concatenate(Layer):
     def __build__(self, architecture: Layered, H0: Layer):
+        self.H0 = H0
+        if isinstance(H0, list):
+            for H in H0:
+                if architecture.top_shape()[0] != H.output_shape[0]:
+                    raise Exception("Mismatching first dimension to concatenate between shapes "+str(architecture.top_shape())+" and "+str(H0.output_shape))
+            return (architecture.top_shape()[0], architecture.top_shape()[1]+H0[0].output_shape[1])
         if architecture.top_shape()[0] != H0.output_shape[0]:
             raise Exception("Mismatching first dimension to concatenate between shapes "+str(architecture.top_shape())+" and "+str(H0.output_shape))
-        self.H0 = H0
         return (architecture.top_shape()[0], architecture.top_shape()[1]+H0.output_shape[1])
 
     def __forward__(self, architecture: Layered, features: tf.Tensor):
-        ret = tf.concat([features, self.H0.value], 1)
-        return ret
+        if isinstance(self.H0, list):
+            return tf.concat([H.value for H in self.H0], axis=1)
+        return tf.concat([features, self.H0.value], axis=1)
     
 
 class Tradeoff(Layer):
@@ -54,7 +60,7 @@ class Tradeoff(Layer):
 
 
 class Dense(Layer):
-    def __build__(self, architecture: Layered, outputs: int = None, activation = lambda x: x, bias: bool = True, dropout: float = 0.5, regularize : bool = True):
+    def __build__(self, architecture: Layered, outputs: int = None, activation = lambda x: x, bias: bool = True, dropout: float = 0, regularize : bool = True):
         if outputs is None:
             outputs = architecture.top_shape()[1]
         self.W = architecture.create_var((architecture.top_shape()[1], outputs), regularize=regularize)

@@ -5,11 +5,11 @@ with Graph Neural Network (GNN) architectures.
 The following documentation is still under construction.
 
 ## GNN Architectures
-A GNN architecture can be either imported from one of the implemented 
-state-of-the-art ones or can be customly defined.
+GNN architectures can be imported from one of the implemented 
+state-of-the-art ones, but new ones can also be defined.
 
 ### Implemented GNNs
-Currently implemented architectures.
+The following architectures are currently implemented.
 
 Architecture | Reference 
 | ----------- | ----------- |
@@ -25,16 +25,21 @@ perceptron with two dense layers and dropout to be used for classification
 can be defined per the following code.
 
 ```python
-from gnntf import Dropout, Dense, GNN
+import gnntf
 import tensorflow as tf
 
-
-class CustomGNN(GNN):
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, hidden_layer=64, num_classes=3, **kwargs):
+class CustomGNN(gnntf.GNN):
+    def __init__(self, 
+                 G: tf.Tensor,
+                 features: tf.Tensor, 
+                 hidden_layer: int = 64, 
+                 num_classes: int = 3, 
+                 **kwargs):
         super().__init__(G, features, **kwargs)
-        self.add(Dropout(0.5))
-        self.add(Dense(hidden_layer, dropout=0.5, activation=tf.nn.relu))
-        self.add(Dense(num_classes, dropout=0, regularize=False))
+        self.add(gnntf.Dropout(0.5))
+        self.add(gnntf.Dense(hidden_layer, activation=tf.nn.relu))
+        self.add(gnntf.Dropout(0.5))
+        self.add(gnntf.Dense(num_classes,  regularize=False))
 ```
 
 :warning: The dropout argument is applied for the time being on layer *outputs*.
