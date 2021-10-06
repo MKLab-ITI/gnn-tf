@@ -9,14 +9,14 @@ with open("README.md", "r") as file:
     long_description = file.read()
 
 setuptools.setup(
-    name='pygrank',
-    version='0.2.4',
+    name='gnntf',
+    version='0.0.1',
     author="Emmanouil (Manios) Krasanakis",
     author_email="maniospas@hotmail.com",
-    description="Recommendation algorithms for large graphs",
+    description="Graph neural networks on tensorflow",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/MKLab-ITI/pygrank",
+    url="https://github.com/maniospas/gnn-test",
     packages=setuptools.find_packages(),
     classifiers=[
          "Programming Language :: Python :: 3",
@@ -24,6 +24,6 @@ setuptools.setup(
          "Operating System :: OS Independent",
      ],
     install_requires=[
-              'sklearn', 'scipy', 'numpy', 'networkx', 'wget'
+              'sklearn', 'scipy', 'numpy', 'networkx', 'tensorflow'
       ],
  )
