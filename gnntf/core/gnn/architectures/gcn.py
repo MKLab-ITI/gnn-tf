@@ -1,7 +1,7 @@
-from core.nn.layered import Layer, Layered
-from core.gnn.gnn import GNN
+from gnntf.core.nn import Layer, Layered
+from gnntf.core.gnn.gnn import GNN
 import tensorflow as tf
-from core.nn.layers import Dense, Dropout
+from gnntf.core.nn.layers import Dense, Dropout
 
 
 class GCNIILayer(Layer):

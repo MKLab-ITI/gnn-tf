@@ -1,8 +1,7 @@
 import numpy as np
 import networkx as nx
 import random
-import tensorflow as tf
-
+from gnntf import graph2adj
 
 def enrich_features(features, positional=True, labels=None, train=None):
     if labels is not None:
@@ -20,27 +19,6 @@ def enrich_features(features, positional=True, labels=None, train=None):
                 positional_fatures[i][positional_fatures.shape[1] - 1 - pos] = float(val) / norm
         features = np.concatenate((features, positional_fatures), axis=1)
     return features
-
-
-def graph2indices(G):
-    node2id = {u: idx for idx, u in enumerate(G)}
-    return [[node2id[u], node2id[v]] for u, v in G.edges()]
-
-
-def negative_sampling(positive_edges, graph, samples=10):
-    edges = list()
-    values = list()
-    nodes = list(graph)
-    for u, v in positive_edges:
-        edges.append([u, v])
-        values.append(1)
-        for _ in range(samples):
-            vneg = v
-            while graph.has_edge(u, vneg) or graph.has_edge(vneg, u) or vneg == u:
-                vneg = random.choice(nodes)
-            edges.append([u, vneg])
-            values.append(0)
-    return np.array(edges), values
 
 
 def sample_edges(G):
@@ -62,20 +40,52 @@ def sample_edges(G):
     return np.array(edges), np.array(labels)
 
 
-def graph2adj(G):
-    for u,v in list(G.edges()):
-        if not G.has_edge(v,u):
-            G.add_edge(v,u)
-    values = [1. for _ in G.edges()]
-    return tf.sparse.SparseTensor(graph2indices(G), values, (len(G), len(G)))
-
 def cite_setup(name, seed=0):
     G, features, labels = load(name)
     print(len(features))
     features = np.array(features)
     labels = np.array(labels)
     train, valid, test = custom_splits(labels, num_validation=500, seed=seed)
-    return graph2adj(G), labels, features, train, valid, test
+    return G, labels, features, train, valid, test
+
+
+def tpl_setup():
+    G = nx.DiGraph()
+    with open('data/relation.txt') as file:
+        for line in file:
+            edge = line[:-1].split(',')
+            if len(edge) < 2:
+                continue
+            u = "A"+edge[-2].split(":")[-1]
+            v = "L"+edge[-1].split(":")[-1]
+            if u != v:
+                G.add_edge(u, v)
+    """
+    features = dict()
+    labels = dict()
+    feature_map = None
+    with open('data/apk_info.csv') as file:
+        for line in file:
+            line = line[:-1].split(',')
+            line[0] = "app"+line[0]
+            if line[0] not in G:
+                continue
+            if feature_map is not None:
+                line_feats = {val.split("=")[0]: val.split("=")[1] for val in line[2:]}
+                line_feats["summary"] = 0
+                features[line[0]] = [float(line_feats.get(val, 0)) for val in feature_map]
+                labels[line[0]] = line[1]
+            else:
+                features[line[0]] = [float(val) for val in line[1:-1]]
+                labels[line[0]] = line[-1]
+    for u in list(G):
+        if u not in features:
+            G.remove_node(u)
+    sums = {u: 1 for u in G}  # sum(features[u]) for u in G}
+    features = {u: [f / sums[u] if f != 0 else 0 for f in features[u]] for u in G}
+    """
+    return G, None
+
 
 def dgl_setup(dataset_name):
     from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset
@@ -99,7 +109,8 @@ def dgl_setup(dataset_name):
         G.add_node(u)
     for u, v in zip(U.numpy().tolist(), V.numpy().tolist()):
         G.add_edge(u, v)
-    return graph2adj(G), labels.numpy(), features.numpy(), np.where(train_mask)[0].tolist(), np.where(val_mask)[0].tolist(), np.where(test_mask)[0].tolist()
+    return G, labels.numpy(), features.numpy(), np.where(train_mask)[0].tolist(), np.where(val_mask)[0].tolist(), np.where(test_mask)[0].tolist()
+
 
 def custom_splits(labels, examples_per_class=20, num_validation=500, seed=0):
     random.seed(seed)
@@ -120,6 +131,7 @@ def custom_splits(labels, examples_per_class=20, num_validation=500, seed=0):
     valid_idx = test_idx[:num_validation]
     test_idx = test_idx[num_validation:]
     return training_idx, valid_idx, test_idx
+
 
 def semisupervised_classification_setup(dataset_name, examples_per_class=20):
     G, features, labels = load(dataset_name)

@@ -21,8 +21,14 @@ class Trainable(Layered):
     def predict(self, predictor: Predictor):
         return predictor.predict(self(self.features))
 
-    def train(self, train: Predictor, valid: Predictor = None, test: Predictor = None,
-              patience=50, learning_rate=0.01, regularization=5.E-4):
+    def train(self,
+              train: Predictor,
+              valid: Predictor = None,
+              test: Predictor = None,
+              patience: int = 100,
+              learning_rate: float = 0.01,
+              regularization: float = 5.E-4,
+              verbose: bool = False):
         self.reset()
         optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         if valid is None:
@@ -43,9 +49,9 @@ class Trainable(Layered):
             output = self(self.features)
             valid_loss = float(valid.loss(output))
             patience_remaining -= 1
-            if test is not None and valid_loss < min_loss:
+            if verbose and valid_loss < min_loss:
                 train_acc = float(train.evaluate(output))
-                test_acc = float(test.evaluate(output))
+                test_acc = float("nan") if test is None else float(test.evaluate(output))
                 valid_acc = float(valid.evaluate(output))
                 print(f'Epoch {epoch}  patience {patience_remaining}  Train loss {float(loss.numpy()):.3f} Validation loss {valid_loss:.3f}  Train {train_acc:.3f} Validation {valid_acc:.3f}  Test {test_acc:.3f}')
             if valid_loss < min_loss:

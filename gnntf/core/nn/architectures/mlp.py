@@ -1,5 +1,5 @@
-from core.nn.trainable import Trainable
-from core.nn.layers import Dropout, Dense
+from gnntf.core.nn.trainable import Trainable
+from gnntf.core.nn.layers import Dropout, Dense
 import tensorflow as tf
 
 

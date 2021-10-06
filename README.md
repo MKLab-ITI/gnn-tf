@@ -1,4 +1,4 @@
-# TestGNN: A Flexible Deep Graph Neural Network Framework
+# gnntf: A Flexible Deep Graph Neural Network Framework
 This repository provides a framework for easy experimentation 
 with Graph Neural Network (GNN) architectures. 
 
@@ -13,8 +13,8 @@ Currently implemented architectures.
 
 Architecture | Reference 
 | ----------- | ----------- |
-``from core.gnn import APPNP`` | [TODO]
-``from core.gnn import GCNII`` | [TODO]
+``from gnntf import APPNP`` | [TODO]
+``from gnntf import GCNII`` | [TODO]
 
 
 ### Custom GNNs
@@ -22,12 +22,12 @@ Custom GNNs can be defined by extended the GNN class and adding layers
 during the constructor method. Typical Neural Network layers can be
 found in the module ``core.gnn.nn.layers``. For example, a traditional
 perceptron with two dense layers and dropout to be used for classification
-can be defined per the following code. 
+can be defined per the following code.
 
 ```python
-from core.nn.layers import Dropout, Dense
-from core.gnn.gnn import GNN
+from gnntf import Dropout, Dense, GNN
 import tensorflow as tf
+
 
 class CustomGNN(GNN):
     def __init__(self, G: tf.Tensor, features: tf.Tensor, hidden_layer=64, num_classes=3, **kwargs):
@@ -66,22 +66,52 @@ predictive task to the GNN to let it know what to train towards.
 
 ```python
 from experiments.experiment_setup import dgl_setup
-from core.gnn import APPNP, NodeClassification
-from utils import acc, set_seed
+import gnntf
 
-set_seed(0)
+gnntf.set_seed(0)
 G, labels, features, train, valid, test = dgl_setup("cora")
 num_classes = len(set(labels))
-gnn = APPNP(G, features, num_classes=num_classes)
+gnn = gnntf.APPNP(G, features, num_classes=num_classes)
 
-gnn.train(train=NodeClassification(train, labels[train]),
-          valid=NodeClassification(valid, labels[valid])  )
+gnn.train(train=gnntf.NodeClassification(train, labels[train]),
+          valid=gnntf.NodeClassification(valid, labels[valid]))
 
-prediction = gnn.predict(NodeClassification(test))
-accuracy = acc(prediction, labels[test])
+prediction = gnn.predict(gnntf.NodeClassification(test))
+accuracy = gnntf.acc(prediction, labels[test])
 print(accuracy)
 ```
 
 
 ### Link Prediction
-[TODO]
+```python
+from experiments.experiment_setup import dgl_setup
+import gnntf
+import random
+
+gnntf.set_seed(0)
+G, _, features = dgl_setup("cora")[:3]
+adj = gnntf.graph2adj(G)
+edges = adj.indices.numpy()
+train = random.sample(range(len(edges)), int(len(edges) * 0.8))
+valid = random.sample(list(set(range(len(edges))) - set(train)), (len(edges)-len(train))//4)
+test = list(set(range(len(edges))) - set(valid) - set(train))
+
+training_graph = gnntf.create_nx_graph(G, edges[train])
+
+gnn = gnntf.APPNP(gnntf.graph2adj(training_graph), features, num_classes=16, positional_dims=16)
+gnn.train(train=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[train], G)),
+          valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid], G)),
+          test=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[test], G)),
+          patience=50, verbose=True)
+
+edges, labels = gnntf.negative_sampling(edges[test], G)
+prediction = gnn.predict(gnntf.LinkPrediction(edges))
+print(gnntf.auc(labels, prediction))
+```
+
+```python
+import numpy as np
+from experiments.experiment_setup import dgl_setup
+G = dgl_setup("cora")[0]
+features = np.zeros((len(G),1))
+```

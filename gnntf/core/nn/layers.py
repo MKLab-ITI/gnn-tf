@@ -11,6 +11,15 @@ class Branch(Layer):
         return self.features
 
 
+class Resume(Layer):
+    def __build__(self, architecture: Layered, H0: Layer):
+        self.H0 = H0
+        return H0.output_shape
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        return self.H0.value
+
+
 class Concatenate(Layer):
     def __build__(self, architecture: Layered, H0: Layer):
         if architecture.top_shape()[0] != H0.output_shape[0]:
@@ -20,6 +29,27 @@ class Concatenate(Layer):
 
     def __forward__(self, architecture: Layered, features: tf.Tensor):
         ret = tf.concat([features, self.H0.value], 1)
+        return ret
+    
+
+class Tradeoff(Layer):
+    def __build__(self, architecture: Layered, layers, weights=None, trainable=True):
+        shape = layers[0].output_shape
+        for layer in layers:
+            if layer.output_shape!= shape:
+                raise Exception("Mismatching trade-off dimentions")
+        self.layers = layers
+        self.weights = [architecture.create_var((1,1), "zero", trainable=trainable) for _ in layers] if weights is None else weights
+        return shape
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        ret = 0
+        weight_sum = 0
+        for weight in self.weights:
+            weight_sum = weight_sum + tf.sigmoid(weight)
+        for weight, layer in zip(self.weights, self.layers):
+            ret = ret + tf.sigmoid(weight)*layer.value / weight_sum
+        print([float(tf.sigmoid(weight).numpy()) for weight in self.weights])
         return ret
 
 

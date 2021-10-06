@@ -1,12 +1,9 @@
 import numpy as np
-import random
 import tensorflow as tf
-from experiments.experiment_setup import dgl_setup, custom_splits
+from experiments.experiment_setup import dgl_setup
 from core.gnn import NodePrediction
 from core.gnn import APPNP, GCNII, APExp
-from core.gnn.filter import PPRIteration
-from core.nn.layers import Activation, Layered, Dense
-from utils import acc, set_seed
+from gnntf.measures import acc, set_seed
 
 def experiments(create_gnn, dataset, repeats=20, **kwargs):
     G, labels, features, train, valid, test = dataset
