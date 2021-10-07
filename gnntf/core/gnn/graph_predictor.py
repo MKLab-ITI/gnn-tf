@@ -48,8 +48,8 @@ def negative_sampling(positive_edges, graph, samples=10):
 class LinkPrediction(Predictor):
     def __init__(self, edges, labels=None, gnn: Layered=None, similarity="cos"):
         if callable(edges):
-            edges, labels = edges()
             self.edge_sampler = edges
+            edges, labels = edges()
         else:
             self.edge_sampler = None
         self.edges = edges
