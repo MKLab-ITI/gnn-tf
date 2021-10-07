@@ -58,8 +58,7 @@ def tpl_setup():
                 continue
             u = "A"+edge[-2].split(":")[-1]
             v = "L"+edge[-1].split(":")[-1]
-            if u != v:
-                G.add_edge(u, v)
+            G.add_edge(u, v)
     """
     features = dict()
     labels = dict()

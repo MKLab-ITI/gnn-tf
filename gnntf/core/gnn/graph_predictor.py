@@ -46,21 +46,37 @@ def negative_sampling(positive_edges, graph, samples=10):
 
 
 class LinkPrediction(Predictor):
-    def __init__(self, edges, labels=None, gnn: Layered=None):
+    def __init__(self, edges, labels=None, gnn: Layered=None, similarity="cos"):
+        if callable(edges):
+            edges, labels = edges()
+            self.edge_sampler = edges
+        else:
+            self.edge_sampler = None
         self.edges = edges
         self.values = None if labels is None else tf.constant(labels, shape=(len(labels),1))
         self.r = None if gnn is None else gnn.create_var(shape=(gnn.top_shape()[1],1), regularize=0, shared_name="distmult", normalization="ones", trainable=True)
+        self.similarity = similarity
+
+    def _update_labels(self):
+        if self.edge_sampler is not None:
+            edges, labels = self.edge_sampler()
+            self.edges = edges
+            self.values = None if labels is None else tf.constant(labels, shape=(len(labels),1))
 
     def predict(self, features: tf.Tensor, to_logits=False):
-        features = tf.math.l2_normalize(features, axis=1)
+        self._update_labels()
+        if self.similarity == "cos":
+            features = tf.math.l2_normalize(features, axis=1)
         similarities = tf.multiply(tf.gather(features, self.edges[:,0]), tf.gather(features, self.edges[:,1]))
         logits = tf.reduce_sum(similarities, axis=1) if self.r is None else tf.matmul(similarities, self.r)
         return logits if to_logits else tf.nn.sigmoid(logits)
 
     def loss(self, features: tf.Tensor):
+        self._update_labels()
         return tf.keras.losses.BinaryCrossentropy(from_logits=True)(self.values, self.predict(features, to_logits=True))
 
     def evaluate(self, features: tf.Tensor):
+        self._update_labels()
         metric = tf.keras.metrics.AUC()
         metric.update_state(self.values, self.predict(features))
         return metric.result().numpy()

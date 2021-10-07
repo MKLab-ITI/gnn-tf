@@ -19,18 +19,22 @@ def auc(labels, predictions):
     return metrics.auc(fpr, tpr)
 
 
+def avprec(labels, predictions, k=5):
+    nom = 0
+    top = np.argsort(predictions)[-k:]
+    for pos, i in enumerate(reversed(top)):
+        nom += labels[i]/(pos+1)
+    return 0 if nom == 0 else nom/np.sum(np.array(labels)[top])
+
+
 def prec(labels, predictions, k=5):
     top = np.argsort(predictions)[-k:]
-    predictions = predictions*0
-    predictions[top] = 1
-    return metrics.precision_score(labels, predictions, pos_label=1)
+    return np.sum(np.array(labels)[top])/k
 
 
 def rec(labels, predictions, k=5):
     top = np.argsort(predictions)[-k:]
-    predictions = predictions*0
-    predictions[top] = 1
-    return metrics.recall_score(labels, predictions, pos_label=1)
+    return np.sum(np.array(labels)[top])/np.sum(labels)
 
 
 def f1(labels, predictions, k=5):
