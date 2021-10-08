@@ -21,8 +21,8 @@ class GNN(Trainable):
         if positional_dims != 0:
             self.add(Positional(positional_dims=positional_dims))
 
-    def get_adjacency(self, graph_dropout=0.5, renormalized=True):
-        G = self.sparse_dropout(self.G, graph_dropout)
+    def get_adjacency(self, graph_dropout=0.5, renormalized=True, dropout_mode="edge"):
+        G = self.sparse_dropout(self.G, graph_dropout, dropout_mode)
         if renormalized:
             G = tf.sparse.add(G, tf.sparse.eye(G.shape[0]))
             D = 1. / tf.sqrt(tf.sparse.reduce_sum(G, axis=0))

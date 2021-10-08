@@ -41,8 +41,16 @@ class Layered(VariableGenerator):
     def dropout(self, features, dropout=0.5):
         return tf.nn.dropout(features, dropout) if self.__training_mode and dropout != 0 else features
 
-    def sparse_dropout(self, G, dropout=0.5):
-        return tf.SparseTensor(G.indices, tf.nn.dropout(G.values, dropout), G.dense_shape) if self.__training_mode and dropout != 0 else G
+    def sparse_dropout(self, G, dropout=0.5, dropout_mode="edge"):
+        if dropout == 0 or not self.__training_mode:
+            return G
+        if dropout_mode == "edge":
+            return tf.SparseTensor(G.indices, tf.nn.dropout(G.values, dropout), G.dense_shape)
+        if dropout_mode == "node":
+            eye = tf.sparse.eye(G.shape[1])
+            dropout_eye = tf.SparseTensor(eye.indices, tf.nn.dropout(eye.values, dropout), eye.dense_shape)
+            return tf.sparse.matmul(G, dropout_eye)
+        raise Exception("Invalid dropout mode: "+dropout_mode)
 
     def __call__(self, features: tf.Tensor):
         for layer in self.__layers:
