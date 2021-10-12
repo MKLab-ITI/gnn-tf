@@ -17,9 +17,16 @@ class Trainable(Layered):
     def __init__(self, features):
         super().__init__(features.shape)
         self.features = features
+        self._fast_predict = None
+
+    def reset(self):
+        super().reset()
+        self._fast_predict = None
 
     def predict(self, predictor: Predictor):
-        return predictor.predict(self(self.features))
+        if self._fast_predict is None:
+            self._fast_predict = self(self.features)
+        return predictor.predict(self._fast_predict)
 
     def train(self,
               train: Predictor,
@@ -28,7 +35,8 @@ class Trainable(Layered):
               patience: int = 100,
               learning_rate: float = 0.01,
               regularization: float = 5.E-4,
-              verbose: bool = False):
+              verbose: bool = False,
+              epochs: int = 2000):
         self.reset()
         optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
         if valid is None:
@@ -36,12 +44,13 @@ class Trainable(Layered):
         min_loss = float('inf')
         min_loss_vars = [var.identity() for var in self.vars()]
         patience_remaining = patience
-        for epoch in range(2000):
+        for epoch in range(epochs):
             with self as vars:
                 with tf.GradientTape() as tape:
                     loss = train.loss(self(self.features))
                     for var in self.vars():
-                        loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
+                        if var.regularize != 0:
+                            loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
                     gradients = tape.gradient(loss, vars)
                     optimizer.apply_gradients(zip(gradients, vars))
 

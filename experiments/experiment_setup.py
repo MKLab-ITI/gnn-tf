@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 import random
-from gnntf import graph2adj
+import scipy
 
 def enrich_features(features, positional=True, labels=None, train=None):
     if labels is not None:
@@ -49,8 +49,25 @@ def cite_setup(name, seed=0):
     return G, labels, features, train, valid, test
 
 
+def split_to_words(sentence):
+    if "_" in sentence:
+        ret = list()
+        for word in sentence.split("_"):
+            ret += split_to_words(word)
+        return ret
+    if "." in sentence:
+        ret = list()
+        for word in sentence.split("."):
+            ret += split_to_words(word)
+        return ret
+    for pos, letter in enumerate(sentence):
+        if pos > 0 and letter.isupper() and sentence[pos-1].islower() and (pos<2 or sentence[pos-2].islower()):
+            return split_to_words(sentence[:pos])+split_to_words(sentence[pos:])
+    return [sentence.lower()]
+
+
 def tpl_setup():
-    G = nx.DiGraph()
+    G = nx.Graph()
     with open('data/relation.txt') as file:
         for line in file:
             edge = line[:-1].split(',')
@@ -59,31 +76,42 @@ def tpl_setup():
             u = "A"+edge[-2].split(":")[-1]
             v = "L"+edge[-1].split(":")[-1]
             G.add_edge(u, v)
-    """
+
     features = dict()
-    labels = dict()
-    feature_map = None
     with open('data/apk_info.csv') as file:
         for line in file:
             line = line[:-1].split(',')
-            line[0] = "app"+line[0]
+            line[0] = "A"+line[0]
             if line[0] not in G:
                 continue
-            if feature_map is not None:
-                line_feats = {val.split("=")[0]: val.split("=")[1] for val in line[2:]}
-                line_feats["summary"] = 0
-                features[line[0]] = [float(line_feats.get(val, 0)) for val in feature_map]
-                labels[line[0]] = line[1]
-            else:
-                features[line[0]] = [float(val) for val in line[1:-1]]
-                labels[line[0]] = line[-1]
-    for u in list(G):
-        if u not in features:
-            G.remove_node(u)
-    sums = {u: 1 for u in G}  # sum(features[u]) for u in G}
-    features = {u: [f / sums[u] if f != 0 else 0 for f in features[u]] for u in G}
-    """
-    return G, None
+            features[line[0]] = split_to_words(line[1])
+    with open('data/lib_info.csv') as file:
+        for line in file:
+            line = line[:-1].split(',')
+            line[0] = "L"+line[0]
+            if line[0] not in G:
+                continue
+            features[line[0]] = split_to_words(line[1])
+    occurences = dict()
+    for words in features.values():
+        for word in words:
+            occurences[word] = occurences.get(word, 0) + 1
+    feature2id = dict()
+    for words in features.values():
+        for word in words:
+            if word not in feature2id and occurences[word] > 3:
+                feature2id[word] = len(feature2id)
+    #entries = list()
+    feature_matrix = np.zeros((len(G), len(feature2id)), dtype=np.float32)
+    for row, node in enumerate(G):
+        for word in features[node]:
+            if word in feature2id:
+                feature_matrix[row,feature2id[word]] = 1.
+                #entries.append([row,feature2id[word], 1.])
+    #print("number of words", len(feature2id))
+    #feature_matrix = scipy.sparse.csr_matrix(entries, shape=(len(G), len(feature2id)))
+
+    return G, np.array(feature_matrix)
 
 
 def dgl_setup(dataset_name):

@@ -66,9 +66,9 @@ class GCN(GNN):
 
 class GRecLayer(Layer):
     def __build__(self, gcn, outputs: int, activation=tf.nn.leaky_relu, bias: bool=False,
-                  dropout: float=0, node_dropout: float=0):
-        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs))
-        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs))
+                  dropout: float = 0, node_dropout: float = 0, regularize: float = 1):
+        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize)
+        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize)
         self.b = gcn.create_var((1,outputs), "zero") if bias else 0
         self.activation = activation
         self.dropout = dropout
@@ -76,22 +76,24 @@ class GRecLayer(Layer):
         return (gcn.top_shape()[0], outputs)
 
     def __forward__(self, gcn, features: tf.Tensor):
-        aggregated_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, renormalized=False, dropout_mode="node"), features)
-        return gcn.dropout(self.activation(tf.matmul(features, self.W1)
-                                           +tf.matmul(tf.multiply(features, aggregated_features), self.W2) + self.b), self.dropout)
+        aggregated_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="after"), features)
+        neighbor_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="none"), features)
+        neighbor_features = tf.multiply(neighbor_features, features)
+        return gcn.dropout(self.activation(tf.matmul(aggregated_features, self.W1)
+                                           +tf.matmul(neighbor_features, self.W2) + self.b), self.dropout)
 
 
 class GRec(GNN):
     # https://dl.acm.org/doi/pdf/10.1145/3468264.3468552
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes: int, latent_dims=None, node_dropout=0.5, dropout=0, **kwargs):
+    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes: int, latent_dims=None, node_dropout=0, dropout=0.1, **kwargs):
         super().__init__(G, features, **kwargs)
         if latent_dims is None:
             latent_dims = [num_classes]*2
         layers = list()
         self.add(Dropout(dropout))
         for latent_dim in latent_dims:
-            layers.append(self.add(GRecLayer(latent_dim, node_dropout=node_dropout)))
+            layers.append(self.add(GRecLayer(latent_dim, node_dropout=node_dropout, regularize=0.2)))
             self.add(Dropout(dropout))
-        layers.append(self.add(GRecLayer(num_classes)))
+        layers.append(self.add(GRecLayer(num_classes, regularize=20.)))
         self.add(Concatenate(layers))
 

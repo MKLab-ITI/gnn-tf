@@ -12,12 +12,12 @@ valid = random.sample(list(set(range(len(edges))) - set(train)), (len(edges)-len
 test = list(set(range(len(edges))) - set(valid) - set(train))
 training_graph = gnntf.create_nx_graph(list(range(len(graph))), edges[train])
 
-gnn = gnntf.APPNP(gnntf.graph2adj(training_graph), features, num_classes=128, positional_dims=128)
-gnn.train(train=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[train], training_graph, samples=1)),
+gnn = gnntf.GRec(gnntf.graph2adj(training_graph), features, num_classes=128, positional_dims=128)
+gnn.train(train=gnntf.LinkPrediction(lambda: gnntf.negative_sampling(edges[train], training_graph, samples=1)),
           valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid], training_graph, samples=1)),
           test=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[test], graph, samples=1)),
           patience=100, verbose=True)
 
-edges, labels = gnntf.negative_sampling(edges[test], graph)
+edges, labels = gnntf.negative_sampling(edges[test], graph, samples=10)
 prediction = gnn.predict(gnntf.LinkPrediction(edges))
 print("AUC over all edges", gnntf.auc(labels, prediction))

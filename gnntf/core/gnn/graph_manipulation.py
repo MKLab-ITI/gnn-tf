@@ -17,14 +17,13 @@ def adj2graph(nodes, adj):
 
 
 def graph2indices(G):
-    node2id = {u: idx for idx, u in enumerate(G)}
+    node2id = {u: u for idx, u in enumerate(G)}
     return [[node2id[u], node2id[v]] for u, v in G.edges()]
 
 
 def graph2adj(G, directed=False):
+    indices = [[u, v] for u, v in G.edges()]#graph2indices(G)
     if not directed:
-        for u,v in list(G.edges()):
-            if not G.has_edge(v,u):
-                G.add_edge(v,u)
-    values = [1. for _ in G.edges()]
-    return tf.sparse.SparseTensor(graph2indices(G), values, (len(G), len(G)))
+        indices = indices + [[v, u] for u, v in indices]
+    values = [1. for _ in range(len(indices))]
+    return tf.sparse.SparseTensor(indices, values, (len(G), len(G)))

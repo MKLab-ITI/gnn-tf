@@ -9,9 +9,10 @@ class Positional(Layer):
         return top_shape[0], positional_dims + top_shape[1]
 
     def __forward__(self, architecture: Layered, features: tf.Tensor):
+        embeddings = tf.math.l2_normalize(self.embeddings, axis=1)
         if features.shape[0] == 0:
-            return self.embeddings
-        return tf.concat([self.embeddings, features], axis=1)
+            return embeddings
+        return tf.concat([embeddings, features], axis=1)
 
 
 class GNN(Trainable):
@@ -21,10 +22,13 @@ class GNN(Trainable):
         if positional_dims != 0:
             self.add(Positional(positional_dims=positional_dims))
 
-    def get_adjacency(self, graph_dropout=0.5, renormalized=True, dropout_mode="edge"):
-        G = self.sparse_dropout(self.G, graph_dropout, dropout_mode)
-        if renormalized:
+    def get_adjacency(self, graph_dropout=0.5, normalized=True, add_eye="before"):
+        G = self.sparse_dropout(self.G, graph_dropout)
+        if add_eye == "before":
             G = tf.sparse.add(G, tf.sparse.eye(G.shape[0]))
+        if normalized:
             D = 1. / tf.sqrt(tf.sparse.reduce_sum(G, axis=0))
             G = tf.reshape(D, (-1, 1)) * G * D
+        if add_eye == "after":
+            G = tf.sparse.add(G, tf.sparse.eye(G.shape[0]))
         return G
