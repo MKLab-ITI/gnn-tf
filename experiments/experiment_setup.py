@@ -67,7 +67,7 @@ def split_to_words(sentence):
 
 
 def tpl_setup():
-    G = nx.Graph()
+    G = nx.DiGraph()
     with open('data/relation.txt') as file:
         for line in file:
             edge = line[:-1].split(',')
@@ -113,6 +113,33 @@ def tpl_setup():
 
     return G, np.array(feature_matrix)
 
+
+def maven_setup():
+    """
+    path = "data/"
+    pairs = list()
+    features = dict()
+
+    with open(path + 'links_all.csv', 'r') as file:
+        next(file)  # skips first line
+        i = 0
+        features = dict()
+        for line in file:
+            i += 1
+            entries = line[:-1].split(",")
+            entries[0] = ":".join(entries[0].split(":")[:-1])
+            entries[1] = ":".join(entries[1].split(":")[:-1])
+
+            pairs.append((anonymizer[entries[0]], anonymizer[entries[1]]))
+
+    G = nx.DiGraph()
+    for u in features:
+        G.add_nodes(u)
+    for u, v in pairs:
+        G.add_edge(u, v)
+    return G, None
+    """
+    return None
 
 def dgl_setup(dataset_name):
     from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset

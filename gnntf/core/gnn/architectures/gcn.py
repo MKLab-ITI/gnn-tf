@@ -29,8 +29,17 @@ class GCNIILayer(Layer):
 
 class GCNII(GNN):
     # http://proceedings.mlr.press/v119/chen20v/chen20v.pdf
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes, a = 0.1, l=0.5, latent_dims=[64], iterations=64, dropout = 0.6, convolution_regularization=True, **kwargs):
-        super().__init__(G, features, **kwargs)
+    def __init__(self, graph: tf.Tensor,
+                 features: tf.Tensor,
+                 num_classes,
+                 a: float = 0.1,
+                 l: float = 0.5,
+                 latent_dims=[64],
+                 iterations=64,
+                 dropout = 0.6,
+                 convolution_regularization=True,
+                 **kwargs):
+        super().__init__(graph, features, **kwargs)
         self.add(Dropout(dropout))
         for latent_dim in latent_dims:
             self.add(Dense(latent_dim, dropout=dropout, activation=tf.nn.relu))
@@ -85,8 +94,14 @@ class GRecLayer(Layer):
 
 class GRec(GNN):
     # https://dl.acm.org/doi/pdf/10.1145/3468264.3468552
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes: int, latent_dims=None, node_dropout=0, dropout=0.1, **kwargs):
-        super().__init__(G, features, **kwargs)
+    def __init__(self,
+                 graph: tf.Tensor,
+                 features: tf.Tensor,
+                 num_classes: int,
+                 latent_dims=None,
+                 node_dropout=0,
+                 dropout=0.1, **kwargs):
+        super().__init__(graph, features, **kwargs)
         if latent_dims is None:
             latent_dims = [num_classes]*2
         layers = list()
