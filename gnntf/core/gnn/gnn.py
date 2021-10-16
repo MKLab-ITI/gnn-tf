@@ -3,32 +3,48 @@ from gnntf.core.nn import Trainable, Layer, Layered
 
 
 class Structural(Layer):
-    def __build__(self, architecture: Layered, structural_dims: int = 16, trainable: bool = True, normalization="xavier"):
+    def __build__(self, architecture: Layered,
+                  dims: int = 16,
+                  l2_contraint: bool = True,
+                  bipartite: int = 0,
+                  **kwargs
+                  ):
         top_shape = architecture.top_shape()
-        self.embeddings = architecture.create_var((top_shape[0], structural_dims), normalization, trainable=trainable)
-        return top_shape[0], structural_dims + top_shape[1]
+        self.l2_contraint = l2_contraint
+        self.embeddings = architecture.create_var((bipartite, dims), **kwargs)
+        self.embeddings2 = architecture.create_var((top_shape[0]-bipartite, dims), **kwargs)
+        return top_shape[0], dims + top_shape[1]
 
     def __forward__(self, architecture: Layered, features: tf.Tensor):
-        embeddings = tf.math.l2_normalize(self.embeddings, axis=1)
+        embeddings = self.embeddings2
+        if self.embeddings.shape[0] != 0:
+            embeddings = tf.concat([self.embeddings, embeddings], axis=0)
+        if self.l2_contraint:
+            embeddings = tf.math.l2_normalize(embeddings, axis=1)
         if features.shape[0] == 0:
             return embeddings
         return tf.concat([embeddings, features], axis=1)
 
 
 class GNN(Trainable):
-    def __init__(self, G: tf.Tensor, features: tf.Tensor, structural_dims: int = 0):
+    def __init__(self, graph: tf.Tensor, features: tf.Tensor, preprocessor: Layer = None):
         super().__init__(features)
-        self.G = G
-        if structural_dims != 0:
-            self.add(Structural(structural_dims=structural_dims))
+        self.graph = graph
+        if preprocessor is not None:
+            self.add(preprocessor)
 
-    def get_adjacency(self, graph_dropout=0.5, normalized=True, add_eye="before"):
-        G = self.sparse_dropout(self.G, graph_dropout)
+    def get_adjacency(self, graph_dropout=0.5, normalized="symmetric", add_eye="before"):
+        graph = self.sparse_dropout(self.graph, graph_dropout)
         if add_eye == "before":
-            G = tf.sparse.add(G, tf.sparse.eye(G.shape[0]))
-        if normalized:
-            D = 1. / tf.sqrt(tf.sparse.reduce_sum(G, axis=0))
-            G = tf.reshape(D, (-1, 1)) * G * D
+            graph = tf.sparse.add(graph, tf.sparse.eye(graph.shape[0]))
+        if normalized == "symmetric":
+            D = 1. / tf.sqrt(tf.sparse.reduce_sum(graph, axis=0))
+            graph = tf.reshape(D, (-1, 1)) * graph * D
+        elif normalized == "bipartite":
+            D = 1. / tf.sparse.reduce_sum(graph, axis=0)
+            graph = tf.reshape(D, (-1, 1))  * graph * D
+        else:
+            raise Exception("Invalid matrix normalization")
         if add_eye == "after":
-            G = tf.sparse.add(G, tf.sparse.eye(G.shape[0]))
-        return G
+            graph = tf.sparse.add(graph, tf.sparse.eye(graph.shape[0]))
+        return graph

@@ -73,33 +73,33 @@ class GCN(GNN):
         self.add(GCNLayer(num_classes))
 
 
-class GRecLayer(Layer):
+class NGCFLayer(Layer):
     def __build__(self, gcn, outputs: int, activation=tf.nn.leaky_relu, bias: bool=False,
                   dropout: float = 0, node_dropout: float = 0, regularize: float = 1):
-        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize)
-        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize)
-        self.b = gcn.create_var((1,outputs), "zero") if bias else 0
+        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization="he")
+        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization="he")
+        self.b1 = gcn.create_var((1,outputs), "zero") if bias else 0
+        self.b2 = gcn.create_var((1,outputs), "zero") if bias else 0
         self.activation = activation
         self.dropout = dropout
         self.node_dropout = node_dropout
         return (gcn.top_shape()[0], outputs)
 
     def __forward__(self, gcn, features: tf.Tensor):
-        aggregated_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="after"), features)
-        neighbor_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="none"), features)
-        neighbor_features = tf.multiply(neighbor_features, features)
-        return gcn.dropout(self.activation(tf.matmul(aggregated_features, self.W1)
-                                           +tf.matmul(neighbor_features, self.W2) + self.b), self.dropout)
+        aggregated_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, normalized="bipartite"), features)
+        #neighbor_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="none"), features)
+        output = self.activation(tf.matmul(tf.multiply(features, aggregated_features), self.W1)+self.b1) \
+            + self.activation(tf.matmul(aggregated_features, self.W2) + self.b2)
+        return tf.math.l2_normalize(gcn.dropout(output, self.dropout), axis=1)
 
 
-class GRec(GNN):
+class NGCF(GNN):
     # https://dl.acm.org/doi/pdf/10.1145/3468264.3468552
     def __init__(self,
                  graph: tf.Tensor,
                  features: tf.Tensor,
                  num_classes: int,
                  latent_dims=None,
-                 node_dropout=0,
                  dropout=0.1, **kwargs):
         super().__init__(graph, features, **kwargs)
         if latent_dims is None:
@@ -107,8 +107,7 @@ class GRec(GNN):
         layers = list()
         self.add(Dropout(dropout))
         for latent_dim in latent_dims:
-            layers.append(self.add(GRecLayer(latent_dim, node_dropout=node_dropout, regularize=0.2)))
-            self.add(Dropout(dropout))
-        layers.append(self.add(GRecLayer(num_classes, regularize=20.)))
+            layers.append(self.add(NGCFLayer(latent_dim, regularize=0.02, dropout=dropout)))
+        layers.append(self.add(NGCFLayer(num_classes, regularize=20, dropout=dropout)))
         self.add(Concatenate(layers))
 

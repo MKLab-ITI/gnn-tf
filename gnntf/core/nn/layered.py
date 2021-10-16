@@ -53,9 +53,10 @@ class Layered(VariableGenerator):
 
 
 class Layer(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, output_regularize: float = 0, **kwargs):
         self.__args = args
         self.__kwargs = kwargs
+        self.output_regularize = output_regularize
 
     def __late_init__(self, architecture: VariableGenerator):
         prev_vars = set(architecture.vars())
@@ -75,3 +76,8 @@ class Layer(object):
     def __call__(self, architecture: VariableGenerator, features: tf.Tensor):
         self.value = self.__forward__(architecture, features)
         return self.value
+
+    def loss(self):
+        if self.output_regularize == 0:
+            return 0
+        return self.output_regularize * tf.nn.l2_loss(self.value)

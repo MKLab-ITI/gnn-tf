@@ -27,14 +27,14 @@ def avprec(labels, predictions, k=5):
     return 0 if nom == 0 else nom/np.sum(np.array(labels)[top])
 
 
-def prec(labels, predictions, k=5):
-    top = np.argsort(predictions)[-k:]
-    return np.sum(np.array(labels)[top])/k
-
-
 def rec(labels, predictions, k=5):
     top = np.argsort(predictions)[-k:]
     return np.sum(np.array(labels)[top])/np.sum(labels)
+
+
+def prec(labels, predictions, k=5):
+    top = np.argsort(predictions)[-k:]
+    return np.mean(np.array(labels)[top])
 
 
 def f1(labels, predictions, k=5):

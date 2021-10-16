@@ -10,7 +10,7 @@ with open("README.md", "r") as file:
 
 setuptools.setup(
     name='gnntf',
-    version='0.0.5',
+    version='0.0.9',
     author="Emmanouil (Manios) Krasanakis",
     author_email="maniospas@hotmail.com",
     description="Graph neural networks on tensorflow",

@@ -77,6 +77,13 @@ def tpl_setup():
             v = "L"+edge[-1].split(":")[-1]
             G.add_edge(u, v)
 
+    nodes = set([v for v in G if "A" in v and G.out_degree(v)>=10])
+    Gprev = G
+    G = nx.DiGraph()
+    for u, v in Gprev.edges():
+        if u in nodes:
+            G.add_edge(u, v)
+
     features = dict()
     with open('data/apk_info.csv') as file:
         for line in file:

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from .layered import Layered
-
+from tqdm import tqdm
 
 class Predictor(object):
     def predict(self, features: tf.Tensor):
@@ -46,7 +46,9 @@ class Trainable(Layered):
               learning_rate: float = 0.01,
               regularization: float = 5.E-4,
               verbose: bool = False,
-              epochs: int = 2000):
+              epochs: int = 2000,
+              degradation = lambda epoch: 1,
+              batches: int = 1):
         self.reset()
         #if isinstance(learning_rate, float):
         #    learning_rate = lambda _: learning_rate
@@ -58,14 +60,20 @@ class Trainable(Layered):
         patience_remaining = patience
         for epoch in range(epochs):
             #optimizer._set_hyper("learning_rate", learning_rate(epoch))
-            with self as vars:
-                with tf.GradientTape() as tape:
-                    loss = train.loss(self(self.features))
-                    for var in self.vars():
-                        if var.regularize != 0:
-                            loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
-                    gradients = tape.gradient(loss, vars)
+            loss = 0
+            for batch in tqdm(range(batches)):
+                with self as vars:
+                    with tf.GradientTape() as tape:
+                        batch_loss = train.loss(self(self.features))
+                        for layer in self.layers():
+                            if layer.output_regularize != 0:
+                                batch_loss = batch_loss + layer.loss() * regularization
+                        for var in self.vars():
+                            if var.regularize != 0:
+                                batch_loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
+                        gradients = tape.gradient(batch_loss* degradation(epoch), vars)
                     optimizer.apply_gradients(zip(gradients, vars))
+                    loss = loss + batch_loss
 
             # patience mechanism
             output = self(self.features)
