@@ -5,7 +5,7 @@ from gnntf.core.nn import Trainable, Layer, Layered
 class Structural(Layer):
     def __build__(self, architecture: Layered,
                   dims: int = 16,
-                  l2_contraint: bool = True,
+                  l2_contraint: bool = False,
                   bipartite: int = 0,
                   **kwargs
                   ):
@@ -33,17 +33,17 @@ class GNN(Trainable):
         if preprocessor is not None:
             self.add(preprocessor)
 
-    def get_adjacency(self, graph_dropout=0.5, normalized="symmetric", add_eye="before"):
+    def get_adjacency(self, graph_dropout=0.5, normalized="symmetric", add_eye="none"):
         graph = self.sparse_dropout(self.graph, graph_dropout)
         if add_eye == "before":
             graph = tf.sparse.add(graph, tf.sparse.eye(graph.shape[0]))
         if normalized == "symmetric":
-            D = 1. / tf.sqrt(tf.sparse.reduce_sum(graph, axis=0))
+            D = tf.divide_no_nan(1., tf.sqrt(tf.sparse.reduce_sum(graph, axis=0)))
             graph = tf.reshape(D, (-1, 1)) * graph * D
         elif normalized == "bipartite":
-            D = 1. / tf.sparse.reduce_sum(graph, axis=0)
-            graph = tf.reshape(D, (-1, 1))  * graph * D
-        else:
+            D = tf.math.divide_no_nan(1., tf.sparse.reduce_sum(graph, axis=0))
+            graph = tf.reshape(D, (-1, 1)) * graph
+        elif normalized != "none":
             raise Exception("Invalid matrix normalization")
         if add_eye == "after":
             graph = tf.sparse.add(graph, tf.sparse.eye(graph.shape[0]))

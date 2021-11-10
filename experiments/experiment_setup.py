@@ -66,9 +66,9 @@ def split_to_words(sentence):
     return [sentence.lower()]
 
 
-def tpl_setup():
+def tpl_setup(path="data"):
     G = nx.DiGraph()
-    with open('data/relation.txt') as file:
+    with open(path+'/relation.txt') as file:
         for line in file:
             edge = line[:-1].split(',')
             if len(edge) < 2:
@@ -85,7 +85,7 @@ def tpl_setup():
             G.add_edge(u, v)
 
     features = dict()
-    with open('data/apk_info.csv') as file:
+    with open(path+'/apk_info.csv') as file:
         for line in file:
             line = line[:-1].split(',')
             line[0] = "A"+line[0]

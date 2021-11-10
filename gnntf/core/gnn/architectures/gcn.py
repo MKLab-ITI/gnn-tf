@@ -74,22 +74,24 @@ class GCN(GNN):
 
 
 class NGCFLayer(Layer):
-    def __build__(self, gcn, outputs: int, activation=tf.nn.leaky_relu, bias: bool=False,
+    def __build__(self, gcn, outputs: int, activation=tf.nn.leaky_relu, bias: bool=True,
                   dropout: float = 0, node_dropout: float = 0, regularize: float = 1):
-        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization="he")
-        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization="he")
-        self.b1 = gcn.create_var((1,outputs), "zero") if bias else 0
-        self.b2 = gcn.create_var((1,outputs), "zero") if bias else 0
+        fan_in = gcn.top_shape()[0]
+        self.W1 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization=1./fan_in**0.5)
+        self.W2 = gcn.create_var((gcn.top_shape()[1], outputs), regularize=regularize, normalization=1./fan_in**0.5)
+        self.b1 = gcn.create_var((1,outputs), normalization=1./fan_in**0.5) if bias else 0
+        self.b2 = gcn.create_var((1,outputs), normalization=1./fan_in**0.5) if bias else 0
         self.activation = activation
         self.dropout = dropout
         self.node_dropout = node_dropout
+        self.adjacency = gcn.get_adjacency(self.node_dropout, add_eye="none", normalized="bipartite")
         return (gcn.top_shape()[0], outputs)
 
     def __forward__(self, gcn, features: tf.Tensor):
-        aggregated_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, normalized="bipartite"), features)
+        aggregated_features = tf.sparse.sparse_dense_matmul(self.adjacency, features)
         #neighbor_features = tf.sparse.sparse_dense_matmul(gcn.get_adjacency(self.node_dropout, add_eye="none"), features)
-        output = self.activation(tf.matmul(tf.multiply(features, aggregated_features), self.W1)+self.b1) \
-            + self.activation(tf.matmul(aggregated_features, self.W2) + self.b2)
+        output = self.activation(tf.matmul(tf.multiply(features, aggregated_features), self.W1)+self.b1)\
+            + self.activation(tf.matmul(aggregated_features, self.W2)+self.b2)
         return tf.math.l2_normalize(gcn.dropout(output, self.dropout), axis=1)
 
 
@@ -105,9 +107,8 @@ class NGCF(GNN):
         if latent_dims is None:
             latent_dims = [num_classes]*2
         layers = list()
-        self.add(Dropout(dropout))
         for latent_dim in latent_dims:
-            layers.append(self.add(NGCFLayer(latent_dim, regularize=0.02, dropout=dropout)))
-        layers.append(self.add(NGCFLayer(num_classes, regularize=20, dropout=dropout)))
+            layers.append(self.add(NGCFLayer(latent_dim, regularize=0.0, dropout=dropout, output_regularize=1)))
+        layers.append(self.add(NGCFLayer(num_classes, regularize=0.0, dropout=dropout, output_regularize=1)))
         self.add(Concatenate(layers))
 

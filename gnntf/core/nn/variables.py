@@ -15,7 +15,9 @@ class WrappedVariable(object):
         optimizer.apply_gradients([(gradient, self.var)])
 
     def reset(self):
-        if self.normalization == 'zero':
+        if isinstance(self.normalization, float):
+            self.var.assign(tf.keras.initializers.RandomUniform(-self.normalization, self.normalization)(self.var.shape))
+        elif self.normalization == 'zero':
             self.var.assign(tf.zeros(self.var.shape))
         elif self.normalization == 'eye':
             self.var.assign(tf.eye(self.var.shape[1]))

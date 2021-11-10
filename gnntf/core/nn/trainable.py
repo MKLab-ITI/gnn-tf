@@ -59,9 +59,11 @@ class Trainable(Layered):
         min_loss_vars = [var.identity() for var in self.vars()]
         patience_remaining = patience
         for epoch in range(epochs):
+            if self._fast_predict is not None:
+                del self._fast_predict
             #optimizer._set_hyper("learning_rate", learning_rate(epoch))
             loss = 0
-            for batch in tqdm(range(batches)):
+            for _ in range(batches):
                 with self as vars:
                     with tf.GradientTape() as tape:
                         batch_loss = train.loss(self(self.features))
@@ -73,17 +75,17 @@ class Trainable(Layered):
                                 batch_loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
                         gradients = tape.gradient(batch_loss* degradation(epoch), vars)
                     optimizer.apply_gradients(zip(gradients, vars))
-                    loss = loss + batch_loss
+                    loss = loss + float(batch_loss.numpy())
 
             # patience mechanism
             output = self(self.features)
             valid_loss = float(valid.loss(output))
             patience_remaining -= 1
-            if verbose and valid_loss < min_loss:
+            if verbose:# and valid_loss < min_loss:
                 train_acc = float(train.evaluate(output))
                 test_acc = float("nan") if test is None else float(test.evaluate(output))
                 valid_acc = float(valid.evaluate(output))
-                print(f'Epoch {epoch}  patience {patience_remaining}  Train loss {float(loss.numpy()):.3f} Validation loss {valid_loss:.3f}  Train {train_acc:.3f} Validation {valid_acc:.3f}  Test {test_acc:.3f}')
+                print(f'Epoch {epoch}  patience {patience_remaining}  Train loss {float(loss):.3f} Validation loss {valid_loss:.3f}  Train {train_acc:.3f} Validation {valid_acc:.3f}  Test {test_acc:.3f}')
             if valid_loss < min_loss:
                 min_loss, min_loss_vars = valid_loss, [var.identity() for var in self.vars()]
                 patience_remaining = patience

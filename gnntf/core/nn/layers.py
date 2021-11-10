@@ -34,8 +34,8 @@ class Concatenate(Layer):
 
     def __forward__(self, architecture: Layered, features: tf.Tensor):
         if isinstance(self.H0, list):
-            return tf.concat([H.value for H in self.H0], axis=1)
-        return tf.concat([features, self.H0.value], axis=1)
+            return tf.concat([H.value for H in self.H0], axis=0)
+        return tf.concat([features, self.H0.value], axis=0)
     
 
 class Tradeoff(Layer):

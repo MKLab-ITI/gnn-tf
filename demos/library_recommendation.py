@@ -14,10 +14,9 @@ with tf.device('/CPU:0'):
     users = [node2id[node] for node in graph if "A" in node]
     items = [node2id[node] for node in graph if "L" in node]
     edges = [[node2id[u], node2id[v]] for u, v in graph.edges()]
-    graph = gnntf.create_nx_graph(node_order, edges)
+    graph = gnntf.create_nx_graph(list(range(len(node_order))), edges)
     item_set = set(items)
     edges = np.array(edges)
-
 
     print("Nodes", len(users))
     print("Users", len(edges))
@@ -36,21 +35,21 @@ with tf.device('/CPU:0'):
         if edge[1] not in user2items:
             user2items[edge[1]] = list()
         user2items[edge[1]].append(i)
-
     test = [edge for user in users for edge in random.sample(user2items[user], rm)]
     non_test = list(set(range(len(edges)))-set(test))
-    valid = random.sample(non_test, len(non_test)//4)
+    valid = random.sample(non_test, 200)
     train = list(set(range(len(edges)))-set(valid)-set(test))
     training_graph = gnntf.create_nx_graph(graph, edges[non_test])
 
     print("Training links", training_graph.number_of_edges())
     print("Feature shape", features.shape)
-    preprocessor = gnntf.Structural(dims=16, regularize=0.2, l2_contraint=False, bipartite=len(users))
+    preprocessor = gnntf.Structural(dims=128, regularize=0, l2_contraint=False, bipartite=len(users))
     #gnn = gnntf.APPNP(gnntf.graph2adj(training_graph), features, num_classes=64, latent_dims=[64], preprocessor=preprocessor)
-    gnn = gnntf.NGCF(gnntf.graph2adj(training_graph), features, num_classes=64, preprocessor=preprocessor)
+    gnn = gnntf.NGCF(gnntf.graph2adj(training_graph), features, num_classes=128, preprocessor=preprocessor)
 
-    batch_size = 2048
-    gnn.train(train=gnntf.LinkPrediction(lambda: gnntf.negative_sampling(edges[random.sample(train, batch_size)], training_graph, samples=1, negative_nodes=items)),
-              valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid], training_graph, samples=1, negative_nodes=items)),
-              test=gnntf.MeanLinkPrediction(edges[test], k=k, graph=graph, positive_nodes=users[:100], negative_nodes=items),
-              patience=50, verbose=True, learning_rate=0.01, batches=len(train)//batch_size+1)
+    gnn.train(train=gnntf.LinkPrediction(gnntf.negative_sampling(edges[train,:], training_graph, negative_nodes=items)),
+              valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid,:], training_graph, negative_nodes=items)()),
+              test=gnntf.MeanLinkPrediction(edges[test,:], k=k, graph=graph, positive_nodes=users[:100], negative_nodes=items),
+              patience=1000, verbose=True, learning_rate=0.01, degradation=lambda epoch: 0.96**(epoch/50.0),
+              regularization=5.E-6*len(train)/len(graph))
+
