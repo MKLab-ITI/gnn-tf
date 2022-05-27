@@ -28,6 +28,9 @@ class Layered(VariableGenerator):
         self.__layers.append(layer)
         return layer
 
+    def is_training(self):
+        return self.__training_mode
+
     def training_mode(self, training_mode):
         self.__training_mode = training_mode
 

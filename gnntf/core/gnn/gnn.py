@@ -38,7 +38,7 @@ class GNN(Trainable):
         if add_eye == "before":
             graph = tf.sparse.add(graph, tf.sparse.eye(graph.shape[0]))
         if normalized == "symmetric":
-            D = tf.divide_no_nan(1., tf.sqrt(tf.sparse.reduce_sum(graph, axis=0)))
+            D = tf.math.divide_no_nan(1., tf.sqrt(tf.sparse.reduce_sum(graph, axis=0)))
             graph = tf.reshape(D, (-1, 1)) * graph * D
         elif normalized == "bipartite":
             D = tf.math.divide_no_nan(1., tf.sparse.reduce_sum(graph, axis=0))

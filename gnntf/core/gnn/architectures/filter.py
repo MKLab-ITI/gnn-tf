@@ -22,6 +22,22 @@ class PPRIteration(Layer):
         return self.activation(architecture.dropout(activation, self.dropout))
 
 
+
+class PPRSweep(Layer):
+    def __build__(self, architecture: GNN, restart_probability: float = 0.1):
+        self.restart_probability = restart_probability
+        return architecture.top_shape() # preserves the feature shape
+
+    def __forward__(self, architecture: GNN, features: tf.Tensor):
+        self.G = architecture.get_adjacency()
+        H0 = features*0 + 1
+        HN = H0
+        for _ in range(10):
+            HN = tf.sparse.sparse_dense_matmul(self.G, HN)*(1-self.restart_probability) + H0*self.restart_probability
+
+        return features / HN
+
+
 class APPNP(GNN):
     # https://arxiv.org/pdf/1810.05997.pdf
     def __init__(self, G: tf.Tensor, features: tf.Tensor, num_classes: int, a: float = 0.1, latent_dims=[64], iterations=10,

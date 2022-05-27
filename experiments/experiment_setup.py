@@ -1,7 +1,8 @@
 import numpy as np
 import networkx as nx
 import random
-import scipy
+import pickle
+
 
 def enrich_features(features, positional=True, labels=None, train=None):
     if labels is not None:
@@ -148,7 +149,12 @@ def maven_setup():
     """
     return None
 
+
 def dgl_setup(dataset_name):
+    print(dataset_name+".dat")
+    import os.path
+    if os.path.exists("data/"+dataset_name+".dat"):
+        return pickle.load(open("data/"+dataset_name+".dat", "rb"))
     from dgl.data import CoraGraphDataset, CiteseerGraphDataset, PubmedGraphDataset
     if dataset_name == "cora":
         data = CoraGraphDataset(verbose=False)
@@ -170,8 +176,9 @@ def dgl_setup(dataset_name):
         G.add_node(u)
     for u, v in zip(U.numpy().tolist(), V.numpy().tolist()):
         G.add_edge(u, v)
-    return G, labels.numpy(), features.numpy(), np.where(train_mask)[0].tolist(), np.where(val_mask)[0].tolist(), np.where(test_mask)[0].tolist()
-
+    ret = (G, labels.numpy(), features.numpy(), np.where(train_mask)[0].tolist(), np.where(val_mask)[0].tolist(), np.where(test_mask)[0].tolist())
+    pickle.dump(ret, open("data/"+dataset_name+".dat", "wb"))
+    return ret
 
 def custom_splits(labels, examples_per_class=20, num_validation=500, seed=0):
     random.seed(seed)
