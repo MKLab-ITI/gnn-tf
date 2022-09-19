@@ -2,7 +2,7 @@ import tensorflow as tf
 
 
 class WrappedVariable(object):
-    def __init__(self, shape, normalization='xavier', trainable=True, regularize=True, name=None):
+    def __init__(self, shape, normalization='small', trainable=True, regularize=True, name=None):
         self.var = tf.Variable(tf.zeros(shape), trainable=trainable)
         self.trainable = trainable
         self.regularize = float(regularize)
@@ -53,7 +53,7 @@ class VariableGenerator(object):
     def vars(self):
         return self.__vars
 
-    def create_var(self, *args,  shared_name=None, **kwargs):
+    def create_var(self, *args, shared_name=None, **kwargs):
         if shared_name is not None and shared_name in self.__named_vars:
             return self.__named_vars[shared_name]
         var = WrappedVariable(*args, **kwargs)

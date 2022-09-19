@@ -2,6 +2,69 @@ from .layered import Layered, Layer
 import tensorflow as tf
 
 
+class LSTM(Layer):
+    def __build__(self, architecture: Layered, dims, dict_size):
+        self.Wf = architecture.create_var((dims, dims), regularize=100)
+        self.Uf = architecture.create_var((dims, dims), regularize=100)
+        self.bf = architecture.create_var((1, dims), "zero", regularize=False)
+        self.Wi = architecture.create_var((dims, dims), regularize=100)
+        self.Ui = architecture.create_var((dims, dims), regularize=100)
+        self.bi = architecture.create_var((1, dims), "zero", regularize=False)
+        self.Wo = architecture.create_var((dims, dims), regularize=100)
+        self.Uo = architecture.create_var((dims, dims), regularize=100)
+        self.bo = architecture.create_var((1, dims), "zero", regularize=False)
+        self.Wc = architecture.create_var((dims, dims), regularize=100)
+        self.Uc = architecture.create_var((dims, dims), regularize=100)
+        self.bc = architecture.create_var((1, dims), "zero", regularize=False)
+        self.embeddings = architecture.create_var((dict_size, dims))
+        return (architecture.top_shape()[0], dims*2)
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        def mul(W, r):
+            if tf.reduce_sum(r) == 0:
+                return r
+            return tf.matmul(r, W)
+        c = 0
+        h = 0
+        features = features.numpy().astype(int)
+        for t in range(features.shape[1]):
+            xt = tf.gather(self.embeddings, features[:, t], axis=0)
+            ft = tf.nn.sigmoid(mul(self.Wf, xt) + mul(self.Uf, h) + self.bf)
+            ot = tf.nn.sigmoid(mul(self.Wo, xt) + mul(self.Uo, h) + self.bo)
+            it = tf.nn.sigmoid(mul(self.Wi, xt) + mul(self.Ui, h) + self.bi)
+            ct = tf.nn.tanh(mul(self.Wc, xt) + mul(self.Uc, h) + self.bc)
+            c = ft*c + it*ct
+            h = ot*tf.nn.tanh(c)
+        ret = tf.concat([h, c], axis=1)
+        return ret
+
+    def loss(self):
+        return 0
+
+
+class Wrap(Layer):
+    def __build__(self, architecture: Layered, tf_layer, *args, dropout=0, **kwargs):
+        self.tf_layer = tf.keras.models.Sequential([tf.keras.Input(shape=(None, architecture.top_shape()[1])),
+                                                                  tf_layer(*args, **kwargs)])
+        def nop():
+            pass
+        for var in self.tf_layer.weights:
+            architecture.create_var((1,1), regularize=False)
+            architecture.vars()[-1].var = var
+            architecture.vars()[-1].reset = nop
+        self.dropout = dropout
+        return (architecture.top_shape()[0], self.tf_layer.output_shape[-1])
+
+    def __forward__(self, architecture: Layered, features: tf.Tensor):
+        return architecture.dropout(self.tf_layer(features), self.dropout)
+
+    def loss(self):
+        loss = super().loss()
+        for layer in self.tf_layer.layers:
+            loss = loss + tf.math.reduce_sum(layer.losses)
+        return loss
+
+
 class Branch(Layer):
     def __build__(self, architecture: Layered, features: tf.Tensor):
         self.features = features

@@ -201,6 +201,15 @@ def custom_splits(labels, examples_per_class=20, num_validation=500, seed=0):
     return training_idx, valid_idx, test_idx
 
 
+def random_splits(labels, training=0.6, validation=0.2, seed=0):
+    random.seed(seed)
+    order = list(range(labels.shape[0]))
+    random.shuffle(order)
+    sep_training = int(len(order)*training)
+    sep_valid = int(len(order)*(training+validation))
+    return order[:sep_training], order[sep_training:sep_valid], order[sep_valid:]
+
+
 def semisupervised_classification_setup(dataset_name, examples_per_class=20):
     G, features, labels = load(dataset_name)
     label2id = {label: idx for idx, label in enumerate(set(labels.values()))}

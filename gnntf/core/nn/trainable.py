@@ -1,6 +1,6 @@
 import tensorflow as tf
 from .layered import Layered
-from tqdm import tqdm
+
 
 class Predictor(object):
     def predict(self, features: tf.Tensor):
@@ -48,11 +48,13 @@ class Trainable(Layered):
               verbose: bool = False,
               epochs: int = 2000,
               degradation = lambda epoch: 1,
-              batches: int = 1):
+              batches: int = 1,
+              optimizer=None):
         self.reset()
         #if isinstance(learning_rate, float):
         #    learning_rate = lambda _: learning_rate
-        optimizer = tf.keras.optimizers.Adam(learning_rate)
+        if optimizer is None:
+            optimizer = tf.keras.optimizers.Adam(learning_rate)
         if valid is None:
             valid = train
         min_loss = float('inf')
@@ -69,7 +71,7 @@ class Trainable(Layered):
                         batch_loss = train.loss(self(self.features))
                         for layer in self.layers():
                             if layer.output_regularize != 0:
-                                batch_loss = batch_loss + layer.loss() * regularization
+                                batch_loss = batch_loss + layer.loss()
                         for var in self.vars():
                             if var.regularize != 0:
                                 batch_loss += regularization * var.regularize * tf.nn.l2_loss(var.var)
@@ -80,12 +82,17 @@ class Trainable(Layered):
             # patience mechanism
             output = self(self.features)
             valid_loss = float(valid.loss(output))
+            """
+            for layer in self.layers():
+                if layer.output_regularize != 0:
+                    valid_loss = valid_loss + layer.loss()
+            """
             patience_remaining -= 1
-            if verbose:# and valid_loss < min_loss:
+            if verbose and valid_loss < min_loss:
                 train_acc = float(train.evaluate(output))
                 test_acc = float("nan") if test is None else float(test.evaluate(output))
                 valid_acc = float(valid.evaluate(output))
-                print(f'Epoch {epoch}  patience {patience_remaining}  Train loss {float(loss):.3f} Validation loss {valid_loss:.3f}  Train {train_acc:.3f} Validation {valid_acc:.3f}  Test {test_acc:.3f}')
+                print(f'\rEpoch {epoch}  patience {patience_remaining}  Train loss {float(loss):.3f} Validation loss {valid_loss:.3f}  Train {train_acc:.3f} Validation {valid_acc:.3f}  Test {test_acc:.3f}', end='')
             if valid_loss < min_loss:
                 min_loss, min_loss_vars = valid_loss, [var.identity() for var in self.vars()]
                 patience_remaining = patience
@@ -93,3 +100,4 @@ class Trainable(Layered):
                 break
         for var, best_var in zip(self.vars(), min_loss_vars):
             var.assign(best_var)
+        print('\r')

@@ -12,11 +12,11 @@ test = list(set(range(len(edges))) - set(valid) - set(train))
 training_graph = gnntf.create_nx_graph(graph, edges[train])
 anonymized_graph = gnntf.create_nx_graph(graph, edges)
 
-gnn = gnntf.APPNP(gnntf.graph2adj(training_graph), features, num_classes=16)
+gnn = gnntf.NGCF(gnntf.graph2adj(training_graph), features, num_classes=16)
 
 setting = {"loss": "diff", "similarity": "dot"}
-gnn.train(train=gnntf.LinkPrediction(lambda: gnntf.negative_sampling(edges[train], training_graph), **setting),
-          valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid], training_graph), **setting),
+gnn.train(train=gnntf.LinkPrediction(gnntf.negative_sampling(edges[train], training_graph), **setting),
+          valid=gnntf.LinkPrediction(*gnntf.negative_sampling(edges[valid], training_graph)(), **setting),
           patience=100, verbose=True)
 
 gnn.evaluate(gnntf.MeanLinkPrediction(edges[test], graph=anonymized_graph, k=5, positive_nodes=list(range(100)), **setting))
